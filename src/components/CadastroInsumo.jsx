@@ -6,22 +6,27 @@ export default function CadastroInsumo({ aoSucesso }) {
   const [insumo, setInsumo] = useState({ 
     nome: '', carac: '', material: '', min: 10 
   });
+  const [loading, setLoading] = useState(false);
 
   const handleSalvar = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      // Agora salvamos apenas o "Molde" do produto no catálogo
+      // Salva o item no catálogo definindo-o como ATIVO
       await addDoc(collection(db, "insumos"), {
         nome: insumo.nome,
         caracteristica: insumo.carac,
         material: insumo.material,
-        estoque_minimo: parseInt(insumo.min)
+        estoque_minimo: parseInt(insumo.min),
+        ativo: true // Campo crucial para a nova lógica
       });
       alert("✅ Produto adicionado ao catálogo com sucesso!");
       setInsumo({ nome: '', carac: '', material: '', min: 10 });
-      if(aoSucesso) aoSucesso(); // Volta pro dashboard
+      if(aoSucesso) aoSucesso();
     } catch (err) {
       alert("Erro ao salvar: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,7 +35,7 @@ export default function CadastroInsumo({ aoSucesso }) {
       <h3 className="fw-bold text-secondary mb-4">Novo Item no Catálogo</h3>
       <div className="alert alert-info border-0 shadow-sm small">
         <i className="bi bi-info-circle-fill me-2"></i>
-        Aqui você cadastra apenas o tipo de insumo. Lotes, validades e quantidades serão informados na tela de <strong>Movimentações (Entrada)</strong>.
+        Cadastre apenas a especificação base. O produto nascerá com status <strong>Ativo</strong>.
       </div>
       <form onSubmit={handleSalvar} className="row g-3">
         <div className="col-md-12">
@@ -50,7 +55,9 @@ export default function CadastroInsumo({ aoSucesso }) {
           <input type="number" className="form-control bg-light" value={insumo.min} onChange={e => setInsumo({...insumo, min: e.target.value})} />
         </div>
         <div className="col-12 mt-4 text-end">
-          <button type="submit" className="btn btn-primary px-5 fw-bold">Salvar no Catálogo</button>
+          <button type="submit" className="btn btn-primary px-5 fw-bold" disabled={loading}>
+            {loading ? 'Salvando...' : 'Salvar no Catálogo'}
+          </button>
         </div>
       </form>
     </div>

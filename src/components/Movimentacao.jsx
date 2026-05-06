@@ -8,83 +8,73 @@ export default function Movimentacao({ usuario, aoSucesso }) {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    tipo: 'E', // 'E' para Entrada, 'S' para Saída
+    tipo: 'E',
     insumo_id: '',
     nome_insumo: '',
     lote: '',
     validade: '',
     quantidade: '',
     finalidade: '',
-    lote_id_saida: '' // Usado apenas na saída para saber qual doc atualizar
+    lote_id_saida: ''
   });
 
-  // Carrega o catálogo ao abrir a tela
   useEffect(() => {
     const carregarCatalogo = async () => {
       const snap = await getDocs(collection(db, "insumos"));
       const dados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Ordena por nome para facilitar a busca no select
-      setCatalogo(dados.sort((a, b) => a.nome.localeCompare(b.nome)));
+      // Filtra apenas os ativos para novas movimentações
+      setCatalogo(dados.filter(i => i.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome)));
     };
     carregarCatalogo();
   }, []);
 
-  // Quando o usuário escolhe um insumo e a operação é "Saída", busca os lotes com saldo
+  // Busca lotes sempre que mudar o insumo ou o tipo for Saída
   useEffect(() => {
-    if (form.tipo === 'S' && form.insumo_id) {
-      const carregarLotesValidos = async () => {
-        const q = query(
-          collection(db, "lotes"), 
-          where("insumo_id", "==", form.insumo_id),
-          where("quantidade", ">", 0)
-        );
-        const snap = await getDocs(q);
-        
-        // Pega os lotes e já filtra para remover os vencidos!
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
+    const carregarLotes = async () => {
+      if (form.tipo === 'S' && form.insumo_id) {
+        try {
+          // Busca todos os lotes desse insumo
+          const q = query(collection(db, "lotes"), where("insumo_id", "==", form.insumo_id));
+          const snap = await getDocs(q);
+          
+          const hoje = new Date();
+          hoje.setHours(0,0,0,0);
 
-        const lotesFiltrados = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(lote => new Date(lote.validade + 'T00:00:00') >= hoje); // Só passa se for >= hoje
-
-        setLotesDisponiveis(lotesFiltrados);
-      };
-      carregarLotesValidos();
-    } else {
-      setLotesDisponiveis([]);
-    }
+          const filtrados = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(l => l.quantidade > 0 && new Date(l.validade + 'T00:00:00') >= hoje);
+          
+          setLotesDisponiveis(filtrados);
+        } catch (err) {
+          console.error("Erro ao buscar lotes:", err);
+        }
+      }
+    };
+    carregarLotes();
   }, [form.insumo_id, form.tipo]);
-
-  const handleInsumoChange = (e) => {
-    const id = e.target.value;
-    const item = catalogo.find(i => i.id === id);
-    setForm({ ...form, insumo_id: id, nome_insumo: item ? item.nome : '', lote: '', validade: '', lote_id_saida: '' });
-  };
 
   const handleSalvar = async (e) => {
     e.preventDefault();
+    if (!form.insumo_id) return alert("Selecione um insumo");
     setLoading(true);
-    const qtd = parseInt(form.quantidade);
 
     try {
+      const qtd = parseInt(form.quantidade);
+      let loteFinal = form.lote;
+
       if (form.tipo === 'E') {
-        // ---- LÓGICA DE ENTRADA ----
-        // 1. Verifica se já existe um lote com esse nome para esse insumo
-        const qLote = query(
-          collection(db, "lotes"), 
-          where("insumo_id", "==", form.insumo_id),
+        const qLote = query(collection(db, "lotes"), 
+          where("insumo_id", "==", form.insumo_id), 
           where("lote", "==", form.lote)
         );
         const snapLote = await getDocs(qLote);
 
         if (!snapLote.empty) {
-          // Lote já existe: apenas soma a quantidade
           const loteDoc = snapLote.docs[0];
-          const novaQtd = loteDoc.data().quantidade + qtd;
-          await updateDoc(doc(db, "lotes", loteDoc.id), { quantidade: novaQtd });
+          await updateDoc(doc(db, "lotes", loteDoc.id), { 
+            quantidade: loteDoc.data().quantidade + qtd 
+          });
         } else {
-          // Lote novo: cria o registro no estoque físico
           await addDoc(collection(db, "lotes"), {
             insumo_id: form.insumo_id,
             lote: form.lote,
@@ -93,41 +83,31 @@ export default function Movimentacao({ usuario, aoSucesso }) {
           });
         }
       } else {
-        // ---- LÓGICA DE SAÍDA ----
-        // 1. Encontra o lote selecionado
         const loteSelecionado = lotesDisponiveis.find(l => l.id === form.lote_id_saida);
-        if (!loteSelecionado) throw new Error("Selecione um lote válido para a saída.");
-        
-        if (qtd > loteSelecionado.quantidade) {
-          throw new Error(`Quantidade indisponível! O lote ${loteSelecionado.lote} possui apenas ${loteSelecionado.quantidade} unidades.`);
-        }
+        if (!loteSelecionado) throw new Error("Selecione um lote válido");
+        if (qtd > loteSelecionado.quantidade) throw new Error("Estoque insuficiente neste lote");
 
-        // 2. Subtrai a quantidade
         await updateDoc(doc(db, "lotes", form.lote_id_saida), {
           quantidade: loteSelecionado.quantidade - qtd
         });
-        
-        // Passa o nome do lote para o histórico
-        form.lote = loteSelecionado.lote; 
+        loteFinal = loteSelecionado.lote;
       }
 
-      // ---- REGISTRA A AUDITORIA (HISTÓRICO) ----
       await addDoc(collection(db, "movimentacoes"), {
         tipo: form.tipo,
         insumo_id: form.insumo_id,
         nome_insumo: form.nome_insumo,
-        lote: form.lote,
+        lote: loteFinal,
         quantidade: qtd,
         finalidade: form.finalidade,
-        usuario: usuario.nome, // Vem das props do App.jsx
+        usuario: usuario?.nome || "Sistema",
         data_hora: new Date().toISOString()
       });
 
-      alert("✅ Movimentação registrada com sucesso!");
-      if(aoSucesso) aoSucesso(); // Volta para o Dashboard
-
+      alert("Sucesso!");
+      if (aoSucesso) aoSucesso();
     } catch (err) {
-      alert("❌ Erro: " + err.message);
+      alert(err.message);
     } finally {
       setLoading(false);
     }
@@ -135,98 +115,63 @@ export default function Movimentacao({ usuario, aoSucesso }) {
 
   return (
     <div className="card shadow-sm border-0 p-4 mx-auto" style={{maxWidth: '800px'}}>
-      <header className="mb-4">
-        <h3 className="fw-bold text-dark mb-1">Registro de Movimentação</h3>
-        <p className="text-muted">Entrada de novos lotes ou baixa de insumos</p>
-      </header>
-
+      <h3 className="fw-bold mb-4">Movimentação de Estoque</h3>
       <form onSubmit={handleSalvar}>
-        {/* TIPO DE MOVIMENTAÇÃO */}
-        <div className="d-flex gap-3 mb-4 p-3 bg-light rounded border">
-          <div className="form-check form-check-inline">
-            <input className="form-check-input" type="radio" name="tipo" id="entrada" 
-                   checked={form.tipo === 'E'} onChange={() => setForm({...form, tipo: 'E', lote: '', validade: '', lote_id_saida: ''})} />
-            <label className="form-check-label fw-bold text-success" htmlFor="entrada">
-              <i className="bi bi-box-arrow-in-down me-1"></i> Entrada (Recebimento)
-            </label>
-          </div>
-          <div className="form-check form-check-inline">
-            <input className="form-check-input" type="radio" name="tipo" id="saida" 
-                   checked={form.tipo === 'S'} onChange={() => setForm({...form, tipo: 'S', lote: '', validade: '', lote_id_saida: ''})} />
-            <label className="form-check-label fw-bold text-danger" htmlFor="saida">
-              <i className="bi bi-box-arrow-up me-1"></i> Saída (Consumo/Baixa)
-            </label>
-          </div>
+        <div className="btn-group w-100 mb-4 shadow-sm">
+          <input type="radio" className="btn-check" name="tipo" id="ent" checked={form.tipo === 'E'} onChange={() => setForm({...form, tipo: 'E'})} />
+          <label className="btn btn-outline-success fw-bold" htmlFor="ent">ENTRADA</label>
+          <input type="radio" className="btn-check" name="tipo" id="sai" checked={form.tipo === 'S'} onChange={() => setForm({...form, tipo: 'S'})} />
+          <label className="btn btn-outline-danger fw-bold" htmlFor="sai">SAÍDA</label>
         </div>
 
         <div className="row g-3">
-          {/* SELEÇÃO DO PRODUTO BASE */}
-          <div className="col-md-12">
-            <label className="form-label fw-bold">Produto Base (Catálogo) *</label>
-            <select className="form-select bg-light" required value={form.insumo_id} onChange={handleInsumoChange}>
-              <option value="">-- Selecione o Insumo --</option>
-              {catalogo.map(item => (
-                <option key={item.id} value={item.id}>
-                  {item.nome} - {item.caracteristica}
-                </option>
-              ))}
+          <div className="col-12">
+            <label className="form-label fw-bold">Insumo</label>
+            <select className="form-select" required value={form.insumo_id} 
+              onChange={e => {
+                const item = catalogo.find(i => i.id === e.target.value);
+                setForm({...form, insumo_id: e.target.value, nome_insumo: item?.nome || ''});
+              }}>
+              <option value="">Selecione...</option>
+              {catalogo.map(i => <option key={i.id} value={i.id}>{i.nome} ({i.caracteristica})</option>)}
             </select>
           </div>
 
-          {/* CAMPOS DINÂMICOS: ENTRADA vs SAÍDA */}
           {form.tipo === 'E' ? (
             <>
               <div className="col-md-6">
-                <label className="form-label fw-bold">Número do Lote *</label>
-                <input type="text" className="form-control" required 
-                       placeholder="Ex: L-1234"
-                       value={form.lote} onChange={e => setForm({...form, lote: e.target.value.toUpperCase()})} />
+                <label className="form-label fw-bold">Lote</label>
+                <input type="text" className="form-control" required value={form.lote} onChange={e => setForm({...form, lote: e.target.value.toUpperCase()})} />
               </div>
               <div className="col-md-6">
-                <label className="form-label fw-bold">Validade do Lote *</label>
-                <input type="date" className="form-control" required 
-                       value={form.validade} onChange={e => setForm({...form, validade: e.target.value})} />
+                <label className="form-label fw-bold">Validade</label>
+                <input type="date" className="form-control" required value={form.validade} onChange={e => setForm({...form, validade: e.target.value})} />
               </div>
             </>
           ) : (
-            <div className="col-md-12">
-              <label className="form-label fw-bold">Selecione o Lote para Baixa *</label>
-              <select className="form-select border-danger-subtle" required 
-                      value={form.lote_id_saida} onChange={e => setForm({...form, lote_id_saida: e.target.value})}
-                      disabled={!form.insumo_id}>
-                <option value="">-- Escolha de qual lote retirar --</option>
+            <div className="col-12">
+              <label className="form-label fw-bold text-danger">Lote Disponível</label>
+              <select className="form-select border-danger" required value={form.lote_id_saida} onChange={e => setForm({...form, lote_id_saida: e.target.value})}>
+                <option value="">Selecione um lote com saldo...</option>
                 {lotesDisponiveis.map(l => (
-                  <option key={l.id} value={l.id}>
-                    Lote: {l.lote} | Vence em: {l.validade.split('-').reverse().join('/')} | Saldo: {l.quantidade} un.
-                  </option>
+                  <option key={l.id} value={l.id}>Lote: {l.lote} | Saldo: {l.quantidade} | Vence: {l.validade}</option>
                 ))}
               </select>
-              {form.insumo_id && lotesDisponiveis.length === 0 && (
-                <div className="text-danger small mt-1"><i className="bi bi-exclamation-triangle"></i> Nenhum lote com saldo disponível para este produto.</div>
-              )}
             </div>
           )}
 
-          {/* QUANTIDADE E FINALIDADE */}
           <div className="col-md-4">
-            <label className="form-label fw-bold">Quantidade *</label>
-            <input type="number" className="form-control" required min="1" 
-                   value={form.quantidade} onChange={e => setForm({...form, quantidade: e.target.value})} />
+            <label className="form-label fw-bold">Quantidade</label>
+            <input type="number" className="form-control" required min="1" value={form.quantidade} onChange={e => setForm({...form, quantidade: e.target.value})} />
           </div>
-          
           <div className="col-md-8">
-            <label className="form-label fw-bold">Finalidade / Observação *</label>
-            <input type="text" className="form-control" required 
-                   placeholder={form.tipo === 'E' ? "Ex: Compra Nota Fiscal 123" : "Ex: Setor de Triagem / Paciente X"}
-                   value={form.finalidade} onChange={e => setForm({...form, finalidade: e.target.value})} />
+            <label className="form-label fw-bold">Observação</label>
+            <input type="text" className="form-control" required value={form.finalidade} onChange={e => setForm({...form, finalidade: e.target.value})} />
           </div>
 
-          {/* BOTÃO SALVAR */}
-          <div className="col-12 mt-4 text-end">
-            <button type="submit" className={`btn px-5 fw-bold text-white ${form.tipo === 'E' ? 'btn-success' : 'btn-danger'}`} disabled={loading}>
-              {loading ? 'Processando...' : (form.tipo === 'E' ? 'Registrar Entrada' : 'Registrar Saída')}
-            </button>
-          </div>
+          <button type="submit" className={`btn btn-lg w-100 mt-4 fw-bold ${form.tipo === 'E' ? 'btn-success' : 'btn-danger'}`} disabled={loading}>
+            {loading ? 'Gravando...' : 'Confirmar Movimentação'}
+          </button>
         </div>
       </form>
     </div>
