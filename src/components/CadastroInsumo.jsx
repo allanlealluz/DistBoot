@@ -32,7 +32,7 @@ export default function CadastroInsumo({ aoSucesso }) {
 
   return (
     <div className="card shadow-sm border-0 p-4 mx-auto" style={{maxWidth: '800px'}}>
-      <h3 className="fw-bold text-secondary mb-4">Novo Item no Catálogo</h3>
+      <h3 className="fw-bold text-dark mb-4">Novo Item no Catálogo</h3>
       <div className="alert alert-info border-0 shadow-sm small">
         <i className="bi bi-info-circle-fill me-2"></i>
         Cadastre apenas a especificação base. O produto nascerá com status <strong>Ativo</strong>.

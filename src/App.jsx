@@ -4,10 +4,8 @@ import Dashboard from './components/Dashboard';
 import CadastroInsumo from './components/CadastroInsumo'; 
 import Movimentacao from './components/Movimentacao';
 import Historico from './components/Historico';
-
-// Importante: Certifique-se de que a imagem está na pasta 'public' ou 'src/assets'
-// Se estiver em 'public', use: src="/distboot.png"
-// Se estiver em 'src/assets', faça o import: import logo from './assets/distboot.png'
+import Perfil from './components/Perfil';
+import ListaUsuarios from './components/ListaUsuarios';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -18,76 +16,95 @@ export default function App() {
   const navegarPara = (tela) => setTelaAtiva(tela);
 
   return (
-    <div className="d-flex vw-100 vh-100 overflow-hidden">
+    <div className="d-flex vw-100 vh-100 overflow-hidden bg-light">
       
-      {/* SIDEBAR MODERNA */}
-      <aside className="d-flex flex-column p-4 text-white shadow-lg flex-shrink-0" 
-             style={{ width: '280px', backgroundColor: '#0f172a', zIndex: 1000 }}>
+      {/* SIDEBAR AJUSTADA (Mais compacta e com barra de rolagem interna) */}
+      <aside className="d-flex flex-column p-3 text-white shadow-lg flex-shrink-0" 
+             style={{ width: '260px', backgroundColor: '#0f172a', zIndex: 1000 }}>
         
-        {/* LOGO COM TAMANHO DELIMITADO */}
-        <div className="mb-5 text-center">
-          <img 
-            src="/distboot.png" 
-            alt="DistBoot Logo" 
-            style={{ width: '180px', height: 'auto', objectFit: 'contain' }} 
-            className="mb-2"
-          />
-          <div className="badge bg-primary-subtle text-primary border border-primary-subtle px-3">
-             Gestão Hospitalar
+        {/* TOPO: LOGO */}
+        <div className="mb-4 text-center">
+          <img src="/distboot.png" alt="DistBoot Logo" style={{ width: '130px', objectFit: 'contain' }} className="mb-2" />
+          <div className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1 rounded-pill" style={{ fontSize: '0.7rem' }}>
+            Gestão Hospitalar
           </div>
         </div>
         
-        <nav className="flex-grow-1">
-          <ul className="nav nav-pills flex-column">
-            <li className="nav-item mb-2">
+        {/* MEIO: NAVEGAÇÃO COM SCROLL */}
+        <nav className="flex-grow-1 overflow-y-auto pe-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e293b transparent' }}>
+          <ul className="nav nav-pills flex-column gap-1">
+            <li className="nav-item">
               <button onClick={() => navegarPara('dashboard')} 
-                      className={`nav-link w-100 text-start py-3 border-0 d-flex align-items-center ${telaAtiva === 'dashboard' ? 'active shadow' : 'text-white-50 bg-transparent'}`}>
-                <i className="bi bi-grid-1x2-fill me-3"></i> Dashboard
+                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'dashboard' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                <i className="bi bi-grid-1x2-fill me-3 fs-6"></i> Dashboard
               </button>
             </li>
-            <li className="nav-item mb-2">
+            <li className="nav-item">
               <button onClick={() => navegarPara('cadastro')} 
-                      className={`nav-link w-100 text-start py-3 border-0 d-flex align-items-center ${telaAtiva === 'cadastro' ? 'active shadow' : 'text-white-50 bg-transparent'}`}>
-                <i className="bi bi-plus-circle-fill me-3"></i> Gestão de Insumos
+                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'cadastro' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                <i className="bi bi-plus-circle-fill me-3 fs-6"></i> Gestão de Insumos
               </button>
             </li>
-            <li className="nav-item mb-2">
+            <li className="nav-item">
               <button onClick={() => navegarPara('movimentacao')} 
-                      className={`nav-link w-100 text-start py-3 border-0 d-flex align-items-center ${telaAtiva === 'movimentacao' ? 'active shadow' : 'text-white-50 bg-transparent'}`}>
-                <i className="bi bi-arrow-left-right me-3"></i> Movimentações
+                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'movimentacao' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                <i className="bi bi-arrow-left-right me-3 fs-6"></i> Movimentações
               </button>
             </li>
-            <li className="nav-item mb-2">
+            <li className="nav-item">
               <button onClick={() => navegarPara('historico')} 
-                      className={`nav-link w-100 text-start py-3 border-0 d-flex align-items-center ${telaAtiva === 'historico' ? 'active shadow' : 'text-white-50 bg-transparent'}`}>
-                <i className="bi bi-clock-history me-3"></i> Auditoria
+                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'historico' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                <i className="bi bi-clock-history me-3 fs-6"></i> Auditoria
+              </button>
+            </li>
+            
+            <li className="nav-item mt-3 mb-1">
+              <small className="text-uppercase text-white-50 fw-bold px-3" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>Administração</small>
+            </li>
+            
+            <li className="nav-item">
+              <button onClick={() => navegarPara('usuarios')} 
+                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'usuarios' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                <i className="bi bi-people-fill me-3 fs-6"></i> Equipe
               </button>
             </li>
           </ul>
         </nav>
         
-        {/* RODAPÉ DA SIDEBAR COM USUÁRIO */}
-        <div className="mt-auto border-top border-secondary pt-3">
-          <div className="d-flex align-items-center mb-3 px-2">
-            <div className="bg-primary rounded-circle d-flex align-items-center justify-content-center me-2" style={{width: '32px', height: '32px'}}>
+        {/* RODAPÉ: FIXO NA TELA (Sempre visível) */}
+        <div className="mt-3 border-top border-secondary border-opacity-50 pt-3">
+          
+          <button 
+            onClick={() => navegarPara('perfil')} 
+            className="btn btn-link text-decoration-none p-2 w-100 text-start mb-2 d-flex align-items-center rounded-3"
+            style={{ backgroundColor: telaAtiva === 'perfil' ? 'rgba(255,255,255,0.1)' : 'transparent', transition: 'background-color 0.2s' }}
+          >
+            <div className="bg-gradient-primary bg-primary rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm text-white fw-bold" 
+                 style={{width: '36px', height: '36px', fontSize: '1rem'}}>
                {user.nome.charAt(0).toUpperCase()}
             </div>
-            <div className="small text-truncate" style={{maxWidth: '180px'}} title={user.nome}>
-               {user.nome}
+            <div className="text-white overflow-hidden">
+               <div className="fw-bold mb-0 text-truncate" style={{ fontSize: '0.85rem' }}>{user.nome}</div>
+               <small className="text-white-50" style={{ fontSize: '0.75rem' }}>Ver perfil</small>
             </div>
-          </div>
-          <button onClick={() => setUser(null)} className="btn btn-sm btn-outline-danger w-100 py-2 fw-bold">
-             <i className="bi bi-box-arrow-left me-2"></i> Sair do Sistema
           </button>
+          
+          {/* BOTÃO DE SAIR - AGORA MAIS COMPACTO E VISÍVEL */}
+          <button onClick={() => setUser(null)} className="btn btn-outline-danger btn-sm w-100 py-2 fw-bold rounded-3 d-flex align-items-center justify-content-center border-opacity-50">
+             <i className="bi bi-box-arrow-left me-2 fs-6"></i> Sair do Sistema
+          </button>
+
         </div>
       </aside>
 
       {/* ÁREA DE CONTEÚDO */}
-      <main className="flex-grow-1 h-100 overflow-auto bg-white p-5">
+      <main className="flex-grow-1 h-100 overflow-auto p-4 p-md-5" style={{ backgroundColor: '#f8fafc' }}>
           {telaAtiva === 'dashboard' && <Dashboard />}
           {telaAtiva === 'cadastro' && <CadastroInsumo aoSucesso={() => navegarPara('dashboard')} />}
           {telaAtiva === 'movimentacao' && <Movimentacao usuario={user} aoSucesso={() => navegarPara('dashboard')} />}
           {telaAtiva === 'historico' && <Historico />}
+          {telaAtiva === 'usuarios' && <ListaUsuarios />}
+          {telaAtiva === 'perfil' && <Perfil usuarioId={user.id} onPerfilAtualizado={(novoNome) => setUser({...user, nome: novoNome})} />}
       </main>
       
     </div>
