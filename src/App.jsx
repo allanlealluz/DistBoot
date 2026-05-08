@@ -10,23 +10,18 @@ import ListaUsuarios from './components/ListaUsuarios';
 export default function App() {
   const [user, setUser] = useState(null);
   const [telaAtiva, setTelaAtiva] = useState('dashboard');
-  
-  // Novo estado para controlar se o menu está aberto no celular
   const [menuAberto, setMenuAberto] = useState(false);
 
   if (!user) return <Login onLogin={(dadosUsuario) => setUser(dadosUsuario)} />;
 
   const navegarPara = (tela) => {
     setTelaAtiva(tela);
-    setMenuAberto(false); // Fecha o menu automaticamente no celular ao trocar de tela
+    setMenuAberto(false); 
   };
 
   return (
     <div className="d-flex vw-100 vh-100 overflow-hidden bg-light position-relative">
       
-      {/* BLOCO DE ESTILO RESPONSIVO 
-        Garante que no PC o menu fique fixo, e no celular ele ganhe posição absoluta e deslize 
-      */}
       <style>{`
         .sidebar-custom {
           width: 260px;
@@ -49,7 +44,6 @@ export default function App() {
         }
       `}</style>
 
-      {/* OVERLAY ESCURO PARA MOBILE (Clica fora do menu para fechar) */}
       {menuAberto && (
         <div 
           className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-md-none" 
@@ -58,12 +52,9 @@ export default function App() {
         ></div>
       )}
 
-      {/* SIDEBAR RESPONSIVA */}
       <aside className="sidebar-custom d-flex flex-column p-3 text-white shadow-lg flex-shrink-0">
         
-        {/* TOPO: LOGO */}
         <div className="mb-4 text-center d-flex flex-column align-items-center position-relative">
-          {/* Botão de fechar (X) apenas visível no mobile */}
           <button 
             onClick={() => setMenuAberto(false)} 
             className="btn btn-link text-white position-absolute top-0 end-0 d-md-none p-0"
@@ -77,7 +68,6 @@ export default function App() {
           </div>
         </div>
         
-        {/* MEIO: NAVEGAÇÃO COM SCROLL */}
         <nav className="flex-grow-1 overflow-y-auto pe-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e293b transparent' }}>
           <ul className="nav nav-pills flex-column gap-1">
             <li className="nav-item">
@@ -105,20 +95,24 @@ export default function App() {
               </button>
             </li>
             
-            <li className="nav-item mt-3 mb-1">
-              <small className="text-uppercase text-white-50 fw-bold px-3" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>Administração</small>
-            </li>
-            
-            <li className="nav-item">
-              <button onClick={() => navegarPara('usuarios')} 
-                      className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'usuarios' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
-                <i className="bi bi-people-fill me-3 fs-6"></i> Equipe
-              </button>
-            </li>
+            {/* --- ALTERAÇÃO AQUI: Menu de Administração visível apenas para ADM --- */}
+            {user?.role === 'admin' && (
+              <>
+                <li className="nav-item mt-3 mb-1">
+                  <small className="text-uppercase text-white-50 fw-bold px-3" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>Administração</small>
+                </li>
+                
+                <li className="nav-item">
+                  <button onClick={() => navegarPara('usuarios')} 
+                          className={`nav-link w-100 text-start py-2 px-3 rounded-3 border-0 d-flex align-items-center transition-all ${telaAtiva === 'usuarios' ? 'active bg-primary text-white shadow-sm' : 'text-white-50 bg-transparent'}`}>
+                    <i className="bi bi-people-fill me-3 fs-6"></i> Equipe
+                  </button>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
         
-        {/* RODAPÉ DO MENU */}
         <div className="mt-3 border-top border-secondary border-opacity-50 pt-3">
           <button 
             onClick={() => navegarPara('perfil')} 
@@ -131,7 +125,7 @@ export default function App() {
             </div>
             <div className="text-white overflow-hidden">
                <div className="fw-bold mb-0 text-truncate" style={{ fontSize: '0.85rem' }}>{user.nome}</div>
-               <small className="text-white-50" style={{ fontSize: '0.75rem' }}>Ver perfil</small>
+               <small className="text-white-50 text-uppercase" style={{ fontSize: '0.6rem' }}>{user.role}</small>
             </div>
           </button>
           
@@ -141,25 +135,25 @@ export default function App() {
         </div>
       </aside>
 
-      {/* CAIXA DIREITA: CABEÇALHO MOBILE + ÁREA DE CONTEÚDO */}
       <main className="flex-grow-1 h-100 d-flex flex-column bg-light overflow-hidden">
         
-        {/* CABEÇALHO SUPERIOR (Visível apenas em Mobile) */}
         <header className="d-md-none bg-white shadow-sm p-3 d-flex align-items-center justify-content-between z-index-1">
           <button onClick={() => setMenuAberto(true)} className="btn btn-light border-0 px-2 py-1 shadow-sm">
             <i className="bi bi-list fs-4"></i>
           </button>
           <span className="fw-bold text-dark fs-5">DistBoot</span>
-          <div style={{width: '40px'}}></div> {/* Usado apenas para manter o título centralizado */}
+          <div style={{width: '40px'}}></div>
         </header>
 
-        {/* TELAS DO SISTEMA */}
         <div className="flex-grow-1 overflow-auto p-3 p-md-5">
             {telaAtiva === 'dashboard' && <Dashboard />}
             {telaAtiva === 'cadastro' && <CadastroInsumo aoSucesso={() => navegarPara('dashboard')} />}
             {telaAtiva === 'movimentacao' && <Movimentacao usuario={user} aoSucesso={() => navegarPara('dashboard')} />}
             {telaAtiva === 'historico' && <Historico />}
-            {telaAtiva === 'usuarios' && <ListaUsuarios />}
+            
+            {/* --- ALTERAÇÃO AQUI: Passando o usuarioLogado para a lista --- */}
+            {telaAtiva === 'usuarios' && <ListaUsuarios usuarioLogado={user} />}
+            
             {telaAtiva === 'perfil' && <Perfil usuarioId={user.id} onPerfilAtualizado={(novoNome) => setUser({...user, nome: novoNome})} />}
         </div>
 

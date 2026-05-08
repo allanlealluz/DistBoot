@@ -15,24 +15,24 @@ export default function Login({ onLogin }) {
       const usersRef = collection(db, "usuarios");
 
       if (isRegistro) {
-        // --- LÓGICA DE CADASTRO ---
         const q = query(usersRef, where("usuario", "==", form.usuario));
         const snap = await getDocs(q);
         
         if (!snap.empty) {
           alert("Erro: Este nome de usuário já está em uso.");
         } else {
+          // --- ADICIONADO: role: 'user' por padrão ---
           await addDoc(usersRef, { 
             nome: form.nome, 
             usuario: form.usuario.toLowerCase(), 
-            senha: form.senha 
+            senha: form.senha,
+            role: 'user' 
           });
           alert("Usuário criado com sucesso. Por favor, faça login.");
           setIsRegistro(false);
-          setForm({ ...form, senha: '' }); // Limpa a senha por segurança
+          setForm({ ...form, senha: '' });
         }
       } else {
-        // --- LÓGICA DE LOGIN ---
         const q = query(usersRef, 
           where("usuario", "==", form.usuario.toLowerCase()), 
           where("senha", "==", form.senha)
@@ -43,7 +43,12 @@ export default function Login({ onLogin }) {
           alert("Erro: Usuário ou senha incorretos.");
         } else {
           const dados = snap.docs[0].data();
-          onLogin({ nome: dados.nome, id: snap.docs[0].id });
+          // --- ADICIONADO: Enviando o role para o estado global ---
+          onLogin({ 
+            nome: dados.nome, 
+            id: snap.docs[0].id, 
+            role: dados.role || 'user' 
+          });
         }
       }
     } catch (err) {
